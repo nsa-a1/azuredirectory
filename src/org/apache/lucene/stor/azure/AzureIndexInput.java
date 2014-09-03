@@ -25,6 +25,8 @@ public class AzureIndexInput extends IndexInput {
     private IndexInput indexInput;
     private Mutex fileMutex;
     
+    private AzureIndexInput parent;
+    
     private ArrayList<AzureIndexInput> clones = null;
     private boolean isClone = false;
 
@@ -42,6 +44,7 @@ public class AzureIndexInput extends IndexInput {
 		cacheDirectory = azureDirectory.getCacheDirectory();
 		clones = new ArrayList<AzureIndexInput>();
 		fileMutex = MutexFactory.getMutex(name);
+		parent = null;
 		try {
 			fileMutex.acquire();
 			
@@ -98,7 +101,12 @@ public class AzureIndexInput extends IndexInput {
 				blob = cloneInput.blob;
 				cacheDirectory = cloneInput.cacheDirectory;
 				isClone = true;
-				cloneInput.clones.add(this);
+				parent = cloneInput;
+				AzureIndexInput tmp = cloneInput;
+				while(tmp.isClone) {
+					tmp = tmp.parent;
+				}
+				tmp.clones.add(this);
 			} finally {
 				fileMutex.release();
 			}
@@ -119,8 +127,13 @@ public class AzureIndexInput extends IndexInput {
 			name = input.name;
 			cacheDirectory = input.cacheDirectory;
 			blob = input.blob;
+			parent = input;
 			isClone = true;
-			input.clones.add(this);
+			AzureIndexInput tmp = input;
+			while(tmp.isClone) {
+				tmp = tmp.parent;
+			}
+			tmp.clones.add(this);
 		} finally {
 			fileMutex.release();
 		}
